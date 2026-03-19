@@ -1,60 +1,131 @@
 from datetime import datetime
 import sqlite3
 
+#DATAS NO FORMATO DATETIME: (DD/MM/YYYY)
+DATE_FORMAT = '%d/%m/%Y'
+
+ITEM_TYPES = ('principal', 'complemento', 'fruta', 'bebida')
+OCURRENCE_TYPES = ('merenda', 'almoço', 'janta')
+
+WEEKDAY_CONVERSION_DICT = {
+    'mon': 'seg', 
+    'tue': 'ter', 
+    'wed': 'qua',
+    'thu': 'qui',
+    'fri': 'sex',
+    'sat': 'sab',
+    'sun': 'dom'
+}
+
+"""COMO INSERIR DADOS MANUALMENTE? (faça pelo terminal, rode 'python' e dps from core import *)
+
+
+insira todos os itens da refeição com o item_insert, um por vez, e se lembre de seus ids
+insira a ocorrência, se for passar a data, use o formato certo, caso n vá, se certifique q a data do sistema está correta
+insira os ids com a função ocurrence_item_insert(). Consulte usando o general query para ver se inseriu corretamente
+se o insert falhou, tente descobrir o porquê e crie uma issue no github, caso n consiga resolver sozinho
+
+Se lembre de dar connection.commit() e connection.close() após inserir os dados corretamente"""
+
+#SEM COMMITS AUTOMÁTICOS NOS INSERTS (por enquanto)
+
 connection = sqlite3.connect('database.db')
+connection.execute('PRAGMA foreign_keys = ON')
 cursor = connection.cursor()
 
-#DATAS NO FORMATO DATETIME: (DD/MM/YYYY)
-#TIPOS DE ITEM: principal, complemento, fruta, bebida
-#TIPOS DE OCORRÊNCIA: merenda, almoço, janta
-#DIAS DA SEMANA: seg, ter, qua, qui, sex
+def item_insert(name: str, i_type: str, c: sqlite3.Cursor = cursor) -> int | None:
+    """Cria um novo item, recebe o tipo e o nome com args
+    verifica por erros e se já há um item no banco
+    verifique se já existe esse item no banco antes de inserir
+    NÃO CRIA ASSOCIAÇÃO COM OCORRÊNCIAS!"""
 
-def item_insert(name: str, type: str, c: sqlite3.Cursor = cursor) -> int | None:
-    #Adicionar verificação prévia, para não repetir items já existentes
-    #Verificar também o tipo, vou deixar uns pré-definidos (talvez não seja necessário)
+    if not isinstance(i_type, str):
+        raise TypeError('"i_type" deve ser uma string')
+    elif i_type not in ITEM_TYPES:
+        raise ValueError(f'"i_type" deve estar em {ITEM_TYPES}')
+    
+    if not isinstance(name, str):
+        raise TypeError('"name" deve ser uma string')
+    
+    name = name.strip().lower()
 
-    c.execute(f'INSERT INTO Item (name, item_type) VALUES (?, ?)', (name, type))
+    if not name:
+        raise ValueError('"name" não pode ser vazio')
+    #elif name.replace(' ', '') in [i.replace(' ', '') for i in c.execute('SELECT name FROM Item').fetchall()]:   NÃO FUNCIONA AINDA
+    #    raise ValueError('Item já existe no banco de dados')
+
+    c.execute(f'INSERT INTO Item (name, type) VALUES (?, ?)', (name, i_type))
+    #connection.commit()
+
     return c.lastrowid
 
-def ocurrence_insert(date: str, type: str, weekday: str, c: sqlite3.Cursor = cursor) -> int | None:
-    #Mesmas observações prévias
-    
-    if not datetime.strptime(date, '%d/%m/%Y') or date.strip() == '':
-        raise ValueError
-        #necessita de testes
+def ocurrence_insert(o_type: str, date: str = datetime.today().strftime(DATE_FORMAT), c: sqlite3.Cursor = cursor) -> int | None:
+    """Cria uma nova ocorrência, recebe o tipo e a data com args
+    Gera o dia da semana automaticamente, e verifica erros
+    Se a data não for especificada, usa a data de hoje no sistema
+    NÃO CRIA ASSOCIAÇÃO COM OS ITENS!"""
 
-    c.execute(f'INSERT INTO Ocurrence (date, ocurrence_type, weekday) VALUES (?, ?, ?)', (date, type, weekday))
+    if not isinstance(o_type, str):
+        raise TypeError('"o_type" deve ser uma string')
+    elif o_type not in OCURRENCE_TYPES:
+        raise ValueError(f'"o_type" deve estar em {OCURRENCE_TYPES}')
+
+    if not isinstance(date, str):
+        raise TypeError('"date" deve ser uma string')
+    
+    date = date.strip()
+
+    if not date:
+        raise ValueError('"date" não pode ser vazio')
+    elif (date, o_type) in c.execute('SELECT date, type FROM Ocurrence').fetchall():
+        raise ValueError('Ocorrência já existe no banco de dados')
+
+    try:
+        dt_obj = datetime.strptime(date, DATE_FORMAT)
+    except Exception as e:
+        raise e('Formato de data inválido (DD/MM/AAAA)')
+    
+    weekday = WEEKDAY_CONVERSION_DICT.get(dt_obj.strftime('%a').lower())
+
+    if not weekday:
+        raise Exception('Erro inesperado. Não foi possível gerar um dia da semana')
+
+    c.execute(f'INSERT INTO Ocurrence (date, weekday, type) VALUES (?, ?, ?)', (date, weekday, o_type))
+    #connection.commit()
+    
     return c.lastrowid
 
 def ocurrence_item_insert(oc_id: int, item_ids: list[int], c: sqlite3.Cursor = cursor) -> None:
     for item_id in item_ids:
         c.execute(f'INSERT INTO OcurrenceItem (ocurrence_id, item_id) VALUES (?, ?)', (oc_id, item_id))
 
-def terminal_insert():
-    #TEMPORÁRIO
-    #se acontecer algum problema e inserir uma ocorrência mas falhar em inserir todos os itens dela, apague ela e tente dnv
-    #essa função é bem simples mesmo, seu propósito é só permitir salvar dados logo, enquanto não faço algo melhor
+    #connection.commit()
 
-    oc_id = ocurrence_insert(input('data: '), input('tipo: '), input('dia da semana: '))
+#3 consultas básicas
+def item_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
+    values = c.execute('SELECT * FROM Item').fetchall()
 
-    item_ids = []
-    while True:
-        inp = input('insira o id do item, 0 para sair: ')
-        if inp == '0':
-            break
+    return values
 
-        item_ids.append(int(inp))
+def ocurrence_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
+    values = c.execute('SELECT * FROM Ocurrence').fetchall()
 
-    ocurrence_item_insert(oc_id, item_ids)
+    return values
 
-def general_query() -> list:
-    #necessita de melhorias
+def ocurrence_item_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
+    values = c.execute('SELECT * FROM OcurrenceItem').fetchall()
 
-    return cursor.execute('SELECT date, GROUP_CONCAT(name) FROM Ocurrence o JOIN OcurrenceItem oi ON o.id = oi.ocurrence_id JOIN Item i ON i.id = oi.item_id').fetchall()
+    return values
+
+#Dar uma corrigida, fiz antes de descobrir como ativar as FK com o PRAGMA ( mas funciona normal, só tá mais confuso doq deveria )
+def general_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
+    values = c.execute('SELECT date, o.type, name, i.type FROM Ocurrence o JOIN OcurrenceItem oi ON o.id = oi.ocurrence_id JOIN Item i ON i.id = oi.item_id').fetchall()
+
+    return values
 
 if __name__ == '__main__':
-    print(cursor.execute('SELECT * FROM Item').fetchall())
-    print(cursor.execute('SELECT * FROM Ocurrence').fetchall())
-    print(cursor.execute('SELECT * FROM OcurrenceItem').fetchall())
+    print(item_query(), '- Item\n')
+    print(ocurrence_query(), '- Ocurrence\n')
+    print(ocurrence_item_query(), '- OcurrenceItem\n')
     print(general_query())
     connection.close()

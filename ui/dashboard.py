@@ -1,5 +1,3 @@
-#Interface e dashboard aqui
-#Lógica de ler e processar a db no core
 import streamlit as st
 from streamlit_card import card
 import plotly.express as px

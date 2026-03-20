@@ -117,9 +117,13 @@ def ocurrence_item_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
 
     return values
 
-#Dar uma corrigida, fiz antes de descobrir como ativar as FK com o PRAGMA ( mas funciona normal, só tá mais confuso doq deveria )
 def general_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
-    values = c.execute('SELECT date, o.type, name, i.type FROM Ocurrence o JOIN OcurrenceItem oi ON o.id = oi.ocurrence_id JOIN Item i ON i.id = oi.item_id').fetchall()
+    values = c.execute('SELECT date, o.type, name, i.type FROM Ocurrence o JOIN OcurrenceItem oi ON o.id = ocurrence_id JOIN Item i ON i.id = item_id').fetchall()
+
+    return values
+
+def grouped_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
+    values = c.execute('SELECT date, o.type, GROUP_CONCAT(name) FROM Ocurrence o JOIN OcurrenceItem oi ON o.id = ocurrence_id JOIN Item i ON i.id = item_id').fetchall()
 
     return values
 
@@ -127,5 +131,9 @@ if __name__ == '__main__':
     print(item_query(), '- Item\n')
     print(ocurrence_query(), '- Ocurrence\n')
     print(ocurrence_item_query(), '- OcurrenceItem\n')
-    print(general_query())
+    print(grouped_query(), '- Agrupado\n')
+
+    print(' --- Geral', *general_query(), sep='\n')
+    print('\n')
+
     connection.close()

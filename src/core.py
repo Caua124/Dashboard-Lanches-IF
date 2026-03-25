@@ -59,7 +59,7 @@ def item_insert(name: str, i_type: str, c: sqlite3.Cursor = cursor) -> int | Non
 
     return c.lastrowid
 
-def ocurrence_insert(o_type: str, date: str = datetime.today().strftime(DATE_FORMAT), c: sqlite3.Cursor = cursor) -> int | None:
+def occurrence_insert(o_type: str, date: str = datetime.today().strftime(DATE_FORMAT), c: sqlite3.Cursor = cursor) -> int | None:
     """Cria uma nova ocorrência, recebe o tipo e a data com args
     Gera o dia da semana automaticamente, e verifica erros
     Se a data não for especificada, usa a data de hoje no sistema
@@ -77,15 +77,15 @@ def ocurrence_insert(o_type: str, date: str = datetime.today().strftime(DATE_FOR
 
     if not date:
         raise ValueError('"date" não pode ser vazio')
-    elif (date, o_type) in c.execute('SELECT date, type FROM Ocurrence').fetchall():
+    elif (date, o_type) in c.execute('SELECT date, type FROM Occurrence').fetchall():
         raise ValueError('Ocorrência já existe no banco de dados')
 
     try:
         dt_obj = datetime.strptime(date, DATE_FORMAT)
-    except Exception as e:
-        raise e('Formato de data inválido (DD/MM/AAAA)')
+    except Exception:
+        raise ValueError('Formato de data inválido (DD/MM/AAAA)')
     
-    weekday = WEEKDAY_CONVERSION_DICT.get(dt_obj.strftime('%a').lower())
+    weekday = WEEKDAY_CONVERSION_DICT.get(dt_obj.strftime('%a').lower()[3:])
 
     if not weekday:
         raise Exception('Erro inesperado. Não foi possível gerar um dia da semana')
@@ -95,7 +95,7 @@ def ocurrence_insert(o_type: str, date: str = datetime.today().strftime(DATE_FOR
     
     return c.lastrowid
 
-def ocurrence_item_insert(oc_id: int, item_ids: list[int], c: sqlite3.Cursor = cursor) -> None:
+def occurrence_item_insert(oc_id: int, item_ids: list[int], c: sqlite3.Cursor = cursor) -> None:
     for item_id in item_ids:
         c.execute(f'INSERT INTO OcurrenceItem (ocurrence_id, item_id) VALUES (?, ?)', (oc_id, item_id))
 
@@ -107,25 +107,25 @@ def item_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
 
     return values
 
-def ocurrence_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
-    values = c.execute('SELECT * FROM Ocurrence').fetchall()
+def occurrence_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
+    values = c.execute('SELECT * FROM Occurrence').fetchall()
 
     return values
 
-def ocurrence_item_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
-    values = c.execute('SELECT * FROM OcurrenceItem').fetchall()
+def occurrence_item_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
+    values = c.execute('SELECT * FROM OccurrenceItem').fetchall()
 
     return values
 
 #Dar uma corrigida, fiz antes de descobrir como ativar as FK com o PRAGMA ( mas funciona normal, só tá mais confuso doq deveria )
 def general_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
-    values = c.execute('SELECT date, o.type, name, i.type FROM Ocurrence o JOIN OcurrenceItem oi ON o.id = oi.ocurrence_id JOIN Item i ON i.id = oi.item_id').fetchall()
+    values = c.execute('SELECT date, o.type, name, i.type FROM Occurrence o JOIN OccurrenceItem oi ON o.id = oi.occurrence_id JOIN Item i ON i.id = oi.item_id').fetchall()
 
     return values
 
 if __name__ == '__main__':
     print(item_query(), '- Item\n')
-    print(ocurrence_query(), '- Ocurrence\n')
-    print(ocurrence_item_query(), '- OcurrenceItem\n')
+    print(occurrence_query(), '- Occurrence\n')
+    print(occurrence_item_query(), '- OccurrenceItem\n')
     print(general_query())
     connection.close()

@@ -1,5 +1,14 @@
 from datetime import datetime
 import sqlite3
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'database.db')
+
+def get_connection():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.execute('PRAGMA foreign_keys = ON')
+    return conn
 
 #DATAS NO FORMATO DATETIME: (DD/MM/YYYY)
 DATE_FORMAT = '%d/%m/%Y'
@@ -30,7 +39,6 @@ Se lembre de dar connection.commit() e connection.close() após inserir os dados
 #SEM COMMITS AUTOMÁTICOS NOS INSERTS (por enquanto)
 
 connection = sqlite3.connect('database.db')
-connection.execute('PRAGMA foreign_keys = ON')
 cursor = connection.cursor()
 
 def item_insert(name: str, i_type: str, c: sqlite3.Cursor = cursor) -> int | None:
@@ -39,6 +47,8 @@ def item_insert(name: str, i_type: str, c: sqlite3.Cursor = cursor) -> int | Non
     verifique se já existe esse item no banco antes de inserir
     NÃO CRIA ASSOCIAÇÃO COM OCORRÊNCIAS!"""
 
+    name = name.strip().lower()
+
     if not isinstance(i_type, str):
         raise TypeError('"i_type" deve ser uma string')
     elif i_type not in ITEM_TYPES:
@@ -46,8 +56,6 @@ def item_insert(name: str, i_type: str, c: sqlite3.Cursor = cursor) -> int | Non
     
     if not isinstance(name, str):
         raise TypeError('"name" deve ser uma string')
-    
-    name = name.strip().lower()
 
     if not name:
         raise ValueError('"name" não pode ser vazio')
@@ -99,7 +107,29 @@ def occurrence_item_insert(oc_id: int, item_ids: list[int], c: sqlite3.Cursor = 
     for item_id in item_ids:
         c.execute(f'INSERT INTO OcurrenceItem (ocurrence_id, item_id) VALUES (?, ?)', (oc_id, item_id))
 
-    #connection.commit()
+    connection.commit()
+    connection.close()
+
+def get_full_data():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = """
+    SELECT 
+        o.date,
+        o.weekday,
+        o.type as refeicao,
+        i.name as item,
+        i.type as tipo_item
+    FROM Ocurrence o
+    JOIN OcurrenceItem oi ON o.id = oi.ocurrence_id
+    JOIN Item i ON i.id = oi.item_id
+    """
+
+    data = cursor.execute(query).fetchall()
+    conn.close()
+
+    return data
 
 #3 consultas básicas
 def item_query(c: sqlite3.Cursor = cursor) -> list[tuple]:
@@ -128,4 +158,13 @@ if __name__ == '__main__':
     print(occurrence_query(), '- Occurrence\n')
     print(occurrence_item_query(), '- OccurrenceItem\n')
     print(general_query())
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    tables = cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table';"
+    ).fetchall()
+
+    print("Tabelas:", tables)
+
     connection.close()

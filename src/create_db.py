@@ -2,10 +2,15 @@
 
 if __name__ == '__main__':
     import sqlite3
+    import os
 
-    connection = sqlite3.connect('database.db')
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DB_PATH = os.path.join(BASE_DIR, 'database.db')
+
+    connection = sqlite3.connect(DB_PATH)
     connection.execute('PRAGMA foreign_keys = ON')
     cursor = connection.cursor()
+
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Ocurrence(
@@ -32,3 +37,5 @@ if __name__ == '__main__':
     
     connection.commit()
     connection.close()
+
+    print("✅ Banco criado com sucesso!")

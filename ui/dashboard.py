@@ -1,129 +1,72 @@
 import sys
 import os
-from core import *
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import streamlit as st
 from streamlit_card import card
 import plotly.express as px
 import pandas as pd
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from src.core import get_full_data
 
 st.set_page_config(page_title="Refeições IF", layout="wide")
 
 st.title("🍎 Refeições IF")
 
-data = {
-    "data": [
-        "18/03/2026","18/03/2026","18/03/2026",
-        "19/03/2026","19/03/2026","19/03/2026",
-        "20/03/2026","20/03/2026","20/03/2026"
-    ],
+data = get_full_data()
 
-    "refeicao": [
-        "Lanche","Almoço","Jantar",
-        "Lanche","Almoço","Jantar",
-        "Lanche","Almoço","Jantar"
-    ],
+df = pd.DataFrame(data, columns=[
+    "data", "dia_semana", "refeicao", "item", "tipo_item"
+])
 
-    "principal": [
-        "Pão com queijo",
-        "Arroz, feijão e frango grelhado",
-        "Sopa",
 
-        "Cuscuz com ovo",
-        "feijão e frango grelhado",
-        "Arroz, feijão e carne moída",
 
-        "Pão com queijo",
-        "Arroz, feijão e frango grelhado",
-        "Sopa"
-    ],
-
-    "complemento": [
-        "Banana",
-        None,
-        None,
-
-        "Suco de acerola",
-        None,
-        None,
-
-        "Melancia",
-        None,
-        None
-    ],
-
-    "tipo_complemento": [
-        "fruta",
-        None,
-        None,
-
-        "bebida",
-        None,
-        None,
-
-        "fruta",
-        None,
-        None
-    ]
-}
-
-df = pd.DataFrame(data)
+#Se banco estiver vazio
+if df.empty:
+    st.warning("⚠️ Nenhum dado encontrado no banco.")
+    st.stop()
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    total_refeicoes = card(
-        title="🍽️ Total de Refeições",
-        text=str(len(df))
-    )
+    st.metric("🍽️ Total de Registros", len(df))
 
 with col2:
-    complemento_mais_servido = df["complemento"].value_counts().idxmax()
-    complemento = card(
-        title="🥤 Complemento mais servido",
-        text=str(complemento_mais_servido)
-    )
+    item_mais_servido = df["item"].value_counts().idxmax()
+    st.metric("🥇 Item mais servido", item_mais_servido)
 
 with col3:
-    lanche_mais_servido = df["principal"].value_counts().idxmax()
-    complemento = card(
-        title="🥪 Lanche mais servido",
-        text=str(lanche_mais_servido)
-    )
+    refeicao_mais_comum = df["refeicao"].value_counts().idxmax()
+    st.metric("🍛 Refeição mais comum", refeicao_mais_comum)
 
-almoco = df[df["refeicao"] == "Almoço"]
-with col4:
-    almoco_mais_servido = almoco["principal"].value_counts().idxmax()
-    card(
-        title="🍛 Almoço mais servido",
-        text=str(almoco_mais_servido)
-    )
+# =========================
+# 📊 FILTRO
+# =========================
+st.sidebar.header("Filtros")
 
-col1, col2 = st.columns(2)
+refeicao_filtro = st.sidebar.multiselect(
+    "Filtrar por refeição",
+    options=df["refeicao"].unique(),
+    default=df["refeicao"].unique()
+)
 
-with col1:
-    lanche = df[df["refeicao"] == "Lanche"]
-    lanches = lanche["principal"].value_counts()
-    st.subheader("🥪 Lanches mais servidos")
-    st.bar_chart(lanches)
+df = df[df["refeicao"].isin(refeicao_filtro)]
 
-with col2:
-    complementos = df["complemento"].value_counts().reset_index()
-    complementos.columns = ["complemento", "quantidade"]
-    fig = px.pie(
-        complementos,
-        names="complemento",
-        values="quantidade",
-        title="Complementos mais servidos"
-    )
+# =========================
+# 📊 GRÁFICOS
+# =========================
+st.subheader("📊 Itens mais servidos")
 
-    st.plotly_chart(fig)
+itens = df["item"].value_counts()
+st.bar_chart(itens)
 
-almoco = df[df["refeicao"] == "Almoço"]
-almocos = almoco["principal"].value_counts()
-st.subheader("🍛 Almoços mais servidos")
-st.bar_chart(almocos)
+st.subheader("📊 Tipos de itens")
 
-st.subheader("Tabela de valores")
+tipos = df["tipo_item"].value_counts()
+st.bar_chart(tipos)
+
+# =========================
+# 📋 TABELA
+# =========================
+st.subheader("📋 Dados completos")
 st.dataframe(df)

@@ -19,30 +19,16 @@ df = pd.DataFrame(data, columns=[
     "data", "dia_semana", "refeicao", "item", "tipo_item"
 ])
 
-
-
 #Se banco estiver vazio
 if df.empty:
     st.warning("⚠️ Nenhum dado encontrado no banco.")
     st.stop()
 
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric("🍽️ Total de Registros", len(df))
-
-with col2:
-    item_mais_servido = df["item"].value_counts().idxmax()
-    st.metric("🥇 Item mais servido", item_mais_servido)
-
-with col3:
-    refeicao_mais_comum = df["refeicao"].value_counts().idxmax()
-    st.metric("🍛 Refeição mais comum", refeicao_mais_comum)
+st.sidebar.header("Filtros")
 
 # =========================
 # 📊 FILTRO
 # =========================
-st.sidebar.header("Filtros")
 
 refeicao_filtro = st.sidebar.multiselect(
     "Filtrar por refeição",
@@ -52,21 +38,78 @@ refeicao_filtro = st.sidebar.multiselect(
 
 df = df[df["refeicao"].isin(refeicao_filtro)]
 
+
+total_registros = len(df)
+item_mais_servido = df["item"].value_counts().idxmax()
+refeicao_mais_comum = df["refeicao"].value_counts().idxmax()
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(
+        label="🍽️ Total de Registros",
+        value=total_registros
+    )
+
+with col2:
+    st.metric(
+        label="🥇 Item mais servido",
+        value=item_mais_servido
+    )
+
+with col3:
+    st.metric(
+        label="🍛 Refeição mais comum",
+        value=refeicao_mais_comum
+    )
+
+col_graficos, col_resumo = st.columns([3,1])
+
 # =========================
 # 📊 GRÁFICOS
 # =========================
-st.subheader("📊 Itens mais servidos")
+with col_graficos:
 
-itens = df["item"].value_counts()
-st.bar_chart(itens)
+    st.subheader("📊 Itens mais servidos")
 
-st.subheader("📊 Tipos de itens")
+    itens = df["item"].value_counts()
 
-tipos = df["tipo_item"].value_counts()
-st.bar_chart(tipos)
+    fig_itens = px.bar(
+        x=itens.index,
+        y=itens.values,
+        labels={
+            "x": "Item",
+            "y": "Quantidade"
+        },
+        title="Itens mais servidos"
+    )
+
+    st.plotly_chart(fig_itens, use_container_width=True)
+
+    st.subheader("📊 Tipos de itens")
+
+    tipos = df["tipo_item"].value_counts()
+
+    fig_tipos = px.pie(
+        values=tipos.values,
+        names=tipos.index,
+        title="Distribuição dos tipos de itens"
+    )
+
+    st.plotly_chart(fig_tipos, use_container_width=True)
+
+with col_resumo:
+
+    st.subheader("📊 Resumo")
+
+    st.info(f"Total de registros: {total_registros}")
+
+    st.success(f"Item mais servido: {item_mais_servido}")
+
+    st.warning(f"Refeição mais comum: {refeicao_mais_comum}")
 
 # =========================
 # 📋 TABELA
 # =========================
 st.subheader("📋 Dados completos")
-st.dataframe(df)
+st.dataframe(df, use_container_width=True, height=400)
